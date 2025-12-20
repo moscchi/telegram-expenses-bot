@@ -1,7 +1,12 @@
 import { Low } from "lowdb";
 import { JSONFile } from "lowdb/node";
-import { join } from "path";
+import { join, dirname } from "path";
 import { existsSync, mkdirSync } from "fs";
+import { fileURLToPath } from "url";
+
+// ESM equivalent de __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export type Workspace = {
   id: string;
