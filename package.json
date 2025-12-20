@@ -1,15 +1,16 @@
 {
   "name": "telegram-expense-bot",
-  "version": "0.1.0",
-  "description": "Telegram bot to manage expenses locally, with AI-powered insights. Built with Node.js and LowDB.",
+  "version": "1.0.0",
+  "description": "Telegram bot to manage expenses locally, with AI-powered insights. Built with Node.js and Telegraf.",
   "license": "MIT",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "tsx src/bot.ts"
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
   },
   "keywords": [],
-  "author": "",
+  "author": "Sebastián Moschini",
   "packageManager": "pnpm@10.5.2",
   "dependencies": {
     "axios": "^1.8.4",
@@ -18,7 +19,8 @@
     "lowdb": "^7.0.1",
     "node-telegram-bot-api": "^0.66.0",
     "openai": "^4.93.0",
-    "telegraf": "^4.16.3"
+    "telegraf": "^4.16.3",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
