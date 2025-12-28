@@ -35,15 +35,12 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
     "alojamiento",
   ],
   transporte: [
-    "taxi",
-    "uber",
-    "cabify",
-    "beat",
     "transmilenio",
     "metro",
     "bus",
     "subte",
-  ]
+  ],
+  taxi: ["taxi", "uber", "cabify", "didi", "beat", "remis"]
 };
 
 const DEFAULT_CATEGORY = "otros";

@@ -94,11 +94,14 @@ Por favor, escribí tu nombre (o el apodo que prefieras):
         <b>Comandos disponibles:</b>
         /g &lt;monto&gt; &lt;descripción&gt; - Registrar un gasto
         /g &lt;monto&gt; [categoría] &lt;descripción&gt; - Registrar con categoría
+        /pago &lt;monto&gt; &lt;descripción&gt; - Registrar pago de deuda
         /month [YYYY-MM] - Total del mes
         /summary [YYYY-MM] - Resumen por categoría
-        /balance - Ver quién debe a quién
+        /balance - Ver quién debe a quién (considera pagos)
         /year [YYYY] - Resumen anual mes a mes
-        /last [n] - Últimos N gastos (default: 5)
+        /find &lt;término&gt; [YYYY-MM] - Buscar gastos
+        /last [n] - Últimos N gastos (con IDs completos)
+        /edit &lt;id&gt; &lt;monto&gt; - Editar monto
         /del &lt;id&gt; - Eliminar un gasto
         /csv [YYYY-MM] - Exportar gastos a CSV
         /help - Ver ayuda completa
@@ -106,8 +109,9 @@ Por favor, escribí tu nombre (o el apodo que prefieras):
         <b>Ejemplos:</b>
         /g 12500 vino luigi bosca
         /g 8300 [super] coto compras
+        /pago 5000 Ana me pagó
         /month 2025-12
-        /summary
+        /find vino
         /balance
         /csv
               `.trim();
@@ -129,10 +133,14 @@ Por favor, escribí tu nombre (o el apodo que prefieras):
 Ejemplo: /g 12500 vino malbec
 Ejemplo: /g 8300 [super] coto compras
 
-<b>📊 Consultas del mes actual:</b>
+<b>💸 Pagos de deuda:</b>
+/pago &lt;monto&gt; &lt;descripción&gt; - Registrar pago de deuda
+Ejemplo: /pago 5000 Ana me pagó
+
+<b>📊 Consultas del mes:</b>
 /month [YYYY-MM] - Total del mes
 /summary [YYYY-MM] - Resumen por categoría
-/balance - Balance 50/50
+/balance - Balance 50/50 (considera pagos de deuda)
 Ejemplo: /month 2025-11
 Ejemplo: /summary 12
 
@@ -140,14 +148,21 @@ Ejemplo: /summary 12
 /year [YYYY] - Resumen mes a mes del año
 Ejemplo: /year 2025
 
+<b>🔍 Búsqueda:</b>
+/find &lt;término&gt; [YYYY-MM] - Buscar gastos por descripción
+Ejemplo: /find vino
+Ejemplo: /find pizza 2025-12
+
 <b>📋 Listado y gestión:</b>
-/last [n] - Últimos N gastos (default: 5)
-/del &lt;id&gt; - Eliminar gasto por ID
+/last [n] - Últimos N gastos con IDs completos (default: 5)
+/del &lt;id&gt; - Eliminar gasto por ID completo
+/edit &lt;id&gt; &lt;monto&gt; - Editar monto de un gasto
 Ejemplo: /last 10
-Ejemplo: /del abc123
+Ejemplo: /del abc123-def456-ghi789
+Ejemplo: /edit abc123-def456-ghi789 15000
 
 <b>💾 Exportar:</b>
-/csv [YYYY-MM] - Exportar gastos del mes a CSV
+/csv [YYYY-MM] - Exportar gastos del mes a CSV (con IDs completos)
 Ejemplo: /csv 2025-12
 Ejemplo: /csv (mes actual)
 
@@ -160,6 +175,8 @@ Ejemplo: /csv (mes actual)
 • Formato de fecha: YYYY-MM (ej: 2025-12)
 • Las categorías se infieren automáticamente o podés usar [categoría]
 • Categorías disponibles: vinos, super, delivery, salidas, hogar, otros
+• Los pagos de deuda (/pago) se consideran en el cálculo de /balance
+• Todos los comandos muestran IDs completos para facilitar edición/eliminación
     `.trim();
 
     await ctx.reply(helpText, { parse_mode: "HTML" });
@@ -541,10 +558,15 @@ Ejemplo: /csv (mes actual)
         expenses.length > 1 ? "s" : ""
       }</b>\n\n`;
 
+      // En el comando /last, cambiar formatExpense por formatExpenseWithFullId:
+
       for (const expense of expenses) {
         const member = await memberRepo.findById(expense.paidBy);
         const memberInfo = member || { username: null, firstName: null };
-        message += `${expenseService.formatExpense(expense, memberInfo)}\n\n`;
+        message += `${expenseService.formatExpenseWithFullId(
+          expense,
+          memberInfo
+        )}\n\n`;
       }
 
       await ctx.reply(message, { parse_mode: "HTML" });
@@ -606,7 +628,175 @@ Ejemplo: /csv (mes actual)
       await ctx.reply("❌ Error al eliminar el gasto");
     }
   });
+  bot.command("find", async (ctx: Context) => {
+    try {
+      const chatId = String(ctx.chat?.id || 0);
 
+      const args =
+        ctx.message && "text" in ctx.message
+          ? ctx.message.text.split(/\s+/).slice(1)
+          : [];
+
+      if (args.length === 0) {
+        await ctx.reply(
+          "❌ Debes proporcionar un término de búsqueda.\nEjemplo: /find vino"
+        );
+        return;
+      }
+
+      let searchTerm = args.slice(0, -1).join(" "); // Todo excepto el último
+      const lastArg = args[args.length - 1];
+
+      // Verificar si el último argumento es una fecha (YYYY-MM o MM)
+      let monthInput: string | undefined;
+      if (/^\d{4}-\d{2}$/.test(lastArg) || /^\d{1,2}$/.test(lastArg)) {
+        monthInput = lastArg;
+      } else {
+        // Si no es fecha, incluir en el término de búsqueda
+        searchTerm = args.join(" ");
+      }
+
+      const { expenses, monthName } =
+        await expenseService.findExpensesByDescription(
+          chatId,
+          searchTerm,
+          monthInput
+        );
+
+      if (expenses.length === 0) {
+        await ctx.reply(
+          `📭 No se encontraron gastos con "${searchTerm}"${
+            monthInput ? ` en ${monthName}` : ""
+          }.`
+        );
+        return;
+      }
+
+      let message = `🔍 <b>Búsqueda: "${searchTerm}"</b>\n`;
+      if (monthInput) {
+        message += `📅 Mes: ${monthName}\n`;
+      }
+      message += `\nEncontrados: ${expenses.length} gasto${
+        expenses.length > 1 ? "s" : ""
+      }\n\n`;
+
+      for (const expense of expenses) {
+        const member = await memberRepo.findById(expense.paidBy);
+        const memberInfo = member || { username: null, firstName: null };
+        message += `${expenseService.formatExpenseWithFullId(
+          expense,
+          memberInfo
+        )}\n\n`;
+      }
+
+      await ctx.reply(message, { parse_mode: "HTML" });
+    } catch (error) {
+      console.error("Error en /find:", error);
+      await ctx.reply("❌ Error al buscar gastos");
+    }
+  });
+
+  bot.command("edit", async (ctx: Context) => {
+    try {
+      const chatId = String(ctx.chat?.id || 0);
+
+      const args =
+        ctx.message && "text" in ctx.message
+          ? ctx.message.text.split(/\s+/).slice(1)
+          : [];
+
+      if (args.length < 2) {
+        await ctx.reply(
+          "❌ Debes proporcionar el ID y el nuevo monto.\nEjemplo: /edit abc123 15000"
+        );
+        return;
+      }
+
+      const expenseId = args[0].trim();
+      const newAmount = args.slice(1).join(" "); // Puede tener espacios si es "12.500,50"
+
+      const updated = await expenseService.updateExpenseAmount(
+        expenseId,
+        chatId,
+        newAmount
+      );
+
+      const member = await memberRepo.findById(updated.paidBy);
+      const memberInfo = member || { username: null, firstName: null };
+      const amountFormatted = formatMoney(updated.amount);
+
+      await ctx.reply(
+        `✅ Gasto actualizado:\n\n${expenseService.formatExpenseWithFullId(
+          updated,
+          memberInfo
+        )}\n\nNuevo monto: ${amountFormatted} ARS`,
+        { parse_mode: "HTML" }
+      );
+    } catch (error) {
+      console.error("Error en /edit:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Error al actualizar el gasto";
+      await ctx.reply(`❌ ${errorMessage}`);
+    }
+  });
+
+  bot.command("pago", async (ctx: Context) => {
+    try {
+      if (!ctx.message || !("text" in ctx.message)) {
+        await ctx.reply("❌ Error: mensaje inválido");
+        return;
+      }
+
+      const text = ctx.message.text;
+      const args = text
+        .replace(/^\/pago\s+/, "")
+        .trim()
+        .split(/\s+/);
+
+      if (args.length < 2) {
+        await ctx.reply(
+          "❌ Debes proporcionar monto y descripción.\nEjemplo: /pago 5000 Ana me pagó"
+        );
+        return;
+      }
+
+      const amount = args[0];
+      const description = args.slice(1).join(" ");
+
+      const chatId = String(ctx.chat?.id || 0);
+      const chatTitle = "title" in ctx.chat! ? ctx.chat.title || null : null;
+      const userId = String(ctx.from?.id || 0);
+      const username = ctx.from?.username || null;
+      const firstName = ctx.from?.first_name || null;
+
+      const expense = await expenseService.addDebtPayment(
+        chatId,
+        chatTitle,
+        userId,
+        username,
+        firstName,
+        amount,
+        description
+      );
+
+      const member = await memberRepo.findById(expense.paidBy);
+      const memberInfo = member || { username, firstName };
+      const amountFormatted = formatMoney(expense.amount);
+
+      await ctx.reply(
+        `✅ Pago de deuda registrado:\n\n${expenseService.formatExpenseWithFullId(
+          expense,
+          memberInfo
+        )}\n\nMonto: ${amountFormatted} ARS\n\nEste pago se considerará en el cálculo de /balance`,
+        { parse_mode: "HTML" }
+      );
+    } catch (error) {
+      console.error("Error en /pago:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Error al registrar el pago";
+      await ctx.reply(`❌ ${errorMessage}`);
+    }
+  });
   // Middleware para capturar el nombre cuando el usuario está en modo "waiting for name"
   // IMPORTANTE: Este debe ir DESPUÉS de los comandos para no interferir
   bot.on("text", async (ctx: Context) => {

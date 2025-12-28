@@ -31,6 +31,7 @@ export type Expense = {
   date: string; // ISO string
   createdAt: string;
   createdBy: string; // memberId
+  type: "expense" | "debt_payment"; // expense or debt payment
 };
 
 type Data = {

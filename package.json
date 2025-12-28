@@ -1,6 +1,6 @@
 {
   "name": "telegram-expense-bot",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Telegram bot to manage expenses locally, with AI-powered insights. Built with Node.js and Telegraf.",
   "license": "MIT",
   "type": "module",
