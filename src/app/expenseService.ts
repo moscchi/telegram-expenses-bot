@@ -57,6 +57,7 @@ export class ExpenseService {
       date: new Date().toISOString(),
       createdAt: new Date().toISOString(),
       createdBy: member.id,
+      type: "expense", // Por defecto es un gasto
     });
     
     return expense;
@@ -185,5 +186,100 @@ export class ExpenseService {
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     
     return { expenses: monthExpenses, monthName };
+  }
+  /**
+   * Busca gastos por descripción
+   * @param workspaceId ID del workspace
+   * @param searchTerm Término de búsqueda
+   * @param monthInput Formato opcional: "YYYY-MM" o "MM" (default: mes actual)
+   */
+  async findExpensesByDescription(
+    workspaceId: string,
+    searchTerm: string,
+    monthInput?: string
+  ): Promise<{ expenses: Expense[]; monthName: string }> {
+    const expenses = await this.expenseRepo.findByDescription(workspaceId, searchTerm, monthInput);
+    const monthName = monthInput 
+      ? (await import("../domain/time.js")).getMonthRange(monthInput).monthName
+      : new Date().toLocaleDateString("es-AR", { month: "long", year: "numeric" });
+    
+    return { expenses, monthName };
+  }
+
+  /**
+   * Actualiza el monto de un gasto
+   * @param expenseId ID del gasto
+   * @param workspaceId ID del workspace
+   * @param newAmountInput Nuevo monto en formato "12500" o "12500.50"
+   */
+  async updateExpenseAmount(
+    expenseId: string,
+    workspaceId: string,
+    newAmountInput: string
+  ): Promise<Expense> {
+    const newAmountCents = parseMoney(newAmountInput);
+    const updated = await this.expenseRepo.updateAmount(expenseId, workspaceId, newAmountCents);
+    
+    if (!updated) {
+      throw new Error("Gasto no encontrado o no pertenece a este workspace");
+    }
+    
+    return updated;
+  }
+
+  /**
+   * Registra un pago de deuda
+   * @param chatId ID del chat
+   * @param chatTitle Título del chat
+   * @param userId ID del usuario
+   * @param username Nombre de usuario
+   * @param firstName Nombre del usuario
+   * @param amountInput Monto en formato "12500" o "12500.50"
+   * @param description Descripción del pago de deuda
+   */
+  async addDebtPayment(
+    chatId: string,
+    chatTitle: string | null,
+    userId: string,
+    username: string | null,
+    firstName: string | null,
+    amountInput: string,
+    description: string
+  ): Promise<Expense> {
+    const amountCents = parseMoney(amountInput);
+    const workspace = await this.workspaceRepo.findOrCreate(chatId, chatTitle);
+    const member = await this.memberRepo.findOrCreate(userId, username, firstName);
+    
+    const expense = await this.expenseRepo.create({
+      workspaceId: workspace.id,
+      amount: amountCents,
+      currency: "ARS",
+      description: description || "Pago de deuda",
+      category: "otros",
+      paidBy: member.id,
+      date: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      createdBy: member.id,
+      type: "debt_payment", // Marcar como pago de deuda
+    });
+    
+    return expense;
+  }
+
+  /**
+   * Formatea expense con ID completo
+   * @param expense Expense
+   * @param member Usuario
+   * @returns Formato del gasto con ID completo
+   */
+  formatExpenseWithFullId(expense: Expense, member: { username: string | null; firstName: string | null }): string {
+    const amount = formatMoney(expense.amount);
+    const memberName = member.username 
+      ? `@${member.username}` 
+      : member.firstName || "Usuario";
+    const date = formatDate(expense.date);
+    const typeLabel = expense.type === "debt_payment" ? " [PAGO DEUDA]" : "";
+    
+    return `ID: <code>${expense.id}</code>\n${amount} ARS — ${expense.category} — "${expense.description}"${typeLabel} — pagado por ${memberName} — ${date}`;
   }
 }

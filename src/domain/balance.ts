@@ -33,18 +33,36 @@ export function computeBalance(
 
   let paidA = 0;
   let paidB = 0;
+  let debtPaymentsA = 0; // Pagos de deuda que A hizo a B
+  let debtPaymentsB = 0; // Pagos de deuda que B hizo a A
 
   for (const expense of expenses) {
-    if (expense.paidBy === memberA.id) {
-      paidA += expense.amount;
-    } else if (expense.paidBy === memberB.id) {
-      paidB += expense.amount;
+    if (expense.type === "debt_payment") {
+      // Los pagos de deuda reducen la deuda del que paga
+      if (expense.paidBy === memberA.id) {
+        debtPaymentsA += expense.amount; // A pagó deuda a B
+      } else if (expense.paidBy === memberB.id) {
+        debtPaymentsB += expense.amount; // B pagó deuda a A
+      }
+    } else {
+      // Gastos normales
+      if (expense.paidBy === memberA.id) {
+        paidA += expense.amount;
+      } else if (expense.paidBy === memberB.id) {
+        paidB += expense.amount;
+      }
     }
   }
 
   const total = paidA + paidB;
   const share = total / 2;
-  const balance = paidA - share; // Positivo = B debe a A, Negativo = A debe a B
+  let balance = paidA - share; // Balance base
+
+  // Ajustar por pagos de deuda
+  // Si A pagó deuda a B, reduce lo que B debe a A
+  balance -= debtPaymentsA;
+  // Si B pagó deuda a A, aumenta lo que B debe a A (o reduce lo que A debe a B)
+  balance += debtPaymentsB;
 
   const result: BalanceResult = {
     memberA,

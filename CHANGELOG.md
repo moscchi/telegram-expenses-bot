@@ -1,4 +1,33 @@
 # Changelog
+## [1.0.2] - 2025-12-28
+### Added
+- **Búsqueda de gastos:**
+  - `/find <término> [YYYY-MM]` - Buscar gastos por descripción con filtro opcional por mes
+  - Muestra IDs completos (UUID) para facilitar edición/eliminación
+
+- **Edición de gastos:**
+  - `/edit <id> <monto>` - Editar el monto de un gasto existente
+  - Validación de workspace para seguridad
+
+- **Pagos de deuda:**
+  - `/pago <monto> <descripción>` - Registrar pagos de deuda
+  - Campo `type` en Expense: "expense" | "debt_payment"
+  - Los pagos de deuda se consideran en el cálculo de `/balance`
+  - Reduce la deuda del miembro que paga
+
+- **Mejoras en visualización:**
+  - `/last` ahora muestra IDs completos (UUID) en lugar de IDs truncados
+  - `/find` muestra IDs completos para todos los resultados
+  - CSV exportado incluye IDs completos y columna "Tipo"
+
+### Changed
+- Modelo de datos: Agregado campo `type` a Expense para distinguir gastos de pagos de deuda
+- Cálculo de balance: Ahora considera pagos de deuda registrados con `/pago`
+- Formato de IDs: Todos los comandos muestran UUID completos para facilitar operaciones
+
+### Fixed
+- IDs truncados que impedían eliminar/editar gastos correctamente
+- CSV ahora incluye IDs completos y tipo de transacción
 
 ## [1.0.1] - 2025-12-20
 ### Fixed

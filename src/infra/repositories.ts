@@ -101,6 +101,7 @@ export class ExpenseRepository {
     const newExpense: Expense = {
       ...expense,
       id: uuidv4(),
+      type: expense.type || "expense",
     };
 
     db.data!.expenses.push(newExpense);
@@ -142,12 +143,58 @@ export class ExpenseRepository {
   async findLastN(workspaceId: string, n: number): Promise<Expense[]> {
     await ensureData();
     if (!db.data || !db.data.expenses) return [];
-    return db
-      .data.expenses.filter((e) => e.workspaceId === workspaceId)
+    return db.data.expenses
+      .filter((e) => e.workspaceId === workspaceId)
       .sort(
         (a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       )
       .slice(0, n);
+  }
+  async findByDescription(
+    workspaceId: string,
+    searchTerm: string,
+    monthInput?: string
+  ): Promise<Expense[]> {
+    await ensureData();
+    let expenses = db.data!.expenses.filter(
+      (e) => e.workspaceId === workspaceId
+    );
+
+    // Filtrar por mes si se proporciona
+    if (monthInput) {
+      const { getMonthRange, isDateInRange } = await import(
+        "../domain/time.js"
+      );
+      const { start, end } = getMonthRange(monthInput);
+      expenses = expenses.filter((e) => isDateInRange(e.date, start, end));
+    }
+
+    // Buscar en descripción (case insensitive)
+    const lowerSearch = searchTerm.toLowerCase();
+    return expenses.filter((e) =>
+      e.description.toLowerCase().includes(lowerSearch)
+    );
+  }
+
+  async updateAmount(
+    id: string,
+    workspaceId: string,
+    newAmount: number
+  ): Promise<Expense | null> {
+    await ensureData();
+
+    const expense = db.data!.expenses.find(
+      (e) => e.id === id && e.workspaceId === workspaceId
+    );
+
+    if (!expense) {
+      return null;
+    }
+
+    expense.amount = newAmount;
+    await db.write();
+
+    return expense;
   }
 }

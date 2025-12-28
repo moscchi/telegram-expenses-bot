@@ -79,23 +79,52 @@ pnpm dev
 ```
 
 ### Listado y gestión
-- `/last [n]` - Últimos N gastos (default: 5)
-- `/del <id>` - Eliminar gasto por ID
+- `/last [n]` - Últimos N gastos con IDs completos (default: 5)
+- `/del <id>` - Eliminar gasto por ID completo
+- `/edit <id> <monto>` - Editar monto de un gasto
 
 **Ejemplos:**
 ```
 /last 10
-/del abc123
+/del abc123-def456-ghi789
+/edit abc123-def456-ghi789 15000
 ```
 
+### Búsqueda
+- `/find <término> [YYYY-MM]` - Buscar gastos por descripción (muestra IDs completos)
+
+**Ejemplos:**
+```
+/find vino
+/find pizza 2025-12
+```
+
+### Edición
+- `/edit <id> <monto>` - Editar el monto de un gasto existente
+
+**Ejemplo:**
+```
+/edit abc123-def456-ghi789 15000
+```
+
+### Pagos de deuda
+- `/pago <monto> <descripción>` - Registrar un pago de deuda (se considera en /balance)
+
+**Ejemplo:**
+```
+/pago 5000 Ana me pagó
+```
+**Nota:** Los pagos de deuda registrados con `/pago` se restan del balance calculado en `/balance`. Si Ana debe 10000 a Seba y se registra `/pago 5000 Ana me pagó`, el balance mostrará que Ana debe 5000.
+
 ### Exportar
-- `/csv [YYYY-MM]` - Exportar gastos del mes a CSV (sin argumento = mes actual)
+- `/csv [YYYY-MM]` - Exportar gastos del mes a CSV con IDs completos (sin argumento = mes actual)
 
 **Ejemplo:**
 ```
 /csv 2025-12
 /csv
 ```
+**Nota:** El CSV exportado incluye IDs completos y una columna "Tipo" que indica si es "Gasto" o "Pago de deuda".
 
 ### Ayuda
 - `/start` - Iniciar bot y ver bienvenida

@@ -10,6 +10,7 @@ export function generateCSV(
   members: Map<string, { username: string | null; firstName: string | null }>
 ): string {
   // Headers
+  // Y actualizar headers:
   const headers = [
     "ID",
     "Fecha",
@@ -17,6 +18,7 @@ export function generateCSV(
     "Categoría",
     "Descripción",
     "Pagado por",
+    "Tipo",
   ];
 
   // Filas
@@ -41,12 +43,13 @@ export function generateCSV(
     };
 
     return [
-      expense.id.slice(0, 6),
+      expense.id, // ID completo en lugar de slice(0, 6)
       date,
-      amount.replace(/\./g, "").replace(",", "."), // Formato numérico para Excel
+      amount.replace(/\./g, "").replace(",", "."),
       escapeCSV(expense.category),
       escapeCSV(expense.description),
       escapeCSV(memberName),
+      expense.type === "debt_payment" ? "Pago de deuda" : "Gasto", // Nueva columna
     ].join(",");
   });
 
